@@ -4,6 +4,8 @@ import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.dldmswo1209.airbnb.databinding.ActivityMainBinding
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.map.*
@@ -20,6 +22,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var naverMap: NaverMap
     private lateinit var binding: ActivityMainBinding
     private lateinit var locationSource: FusedLocationSource
+    private val recyclerView: RecyclerView by lazy {
+        findViewById(R.id.recyclerView)
+    }
+    private val recyclerAdapter = HouseListAdapter()
+    private val viewPagerAdapter = HouseViewPagerAdapter()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -27,6 +34,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         binding.mapView.onCreate(savedInstanceState)
 
         binding.mapView.getMapAsync(this)
+
+        binding.houseViewPager.adapter = viewPagerAdapter
+        recyclerView.adapter = recyclerAdapter
+        recyclerView.layoutManager = LinearLayoutManager(this)
+
     }
     override fun onMapReady(map: NaverMap) {
         naverMap = map
@@ -39,10 +51,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val cameraUpdate = CameraUpdate.scrollTo(LatLng(37.497885,127.02751))
         naverMap.moveCamera(cameraUpdate)
 
-        // 현재 위치를 찾는 버튼 활성화
-        val uiSetting = naverMap.uiSettings
-        uiSetting.isLocationButtonEnabled = true
 
+        val uiSetting = naverMap.uiSettings
+        uiSetting.isLocationButtonEnabled = false
+        // 버튼의 위치를 임의로 설정하기 위함
+        binding.currentLocationButton.map = naverMap
 
         // 위치를 반환하는 FusedLocationSource 생성
         locationSource = FusedLocationSource(this@MainActivity, LOCATION_PERMISSION_REQUEST_CODE)
@@ -68,6 +81,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                         }
                         response.body()?.let { dto ->
                             updateMarker(dto.items)
+                            viewPagerAdapter.submitList(dto.items)
+                            recyclerAdapter.submitList(dto.items)
                         }
                     }
 

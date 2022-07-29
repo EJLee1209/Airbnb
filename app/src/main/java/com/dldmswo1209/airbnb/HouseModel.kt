@@ -6,6 +6,6 @@ data class HouseModel(
     val price: String,
     val lat: Double,
     val lng: Double,
-    val imageUrl: String
+    val imgUrl: String
 )
 
