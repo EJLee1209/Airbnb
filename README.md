@@ -1,8 +1,6 @@
 # 📌 실행화면
 <img src="https://velog.velcdn.com/images/dldmswo1209/post/0b5d3281-fc26-4bad-a3be-f5dfcfe1e424/image.gif" width="50%" height="50%"/>
 
-
-
 # 📌 요구사항
 - Naver Map API 사용하기
 - ViewPager2 사용하기
