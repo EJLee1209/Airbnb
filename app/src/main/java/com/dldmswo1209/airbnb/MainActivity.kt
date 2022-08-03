@@ -1,15 +1,19 @@
 package com.dldmswo1209.airbnb
 
+import android.content.Intent
 import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import com.dldmswo1209.airbnb.databinding.ActivityMainBinding
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.map.*
 import com.naver.maps.map.overlay.Marker
+import com.naver.maps.map.overlay.Overlay
 import com.naver.maps.map.util.FusedLocationSource
 import com.naver.maps.map.util.MarkerIcons
 import retrofit2.Call
@@ -18,15 +22,26 @@ import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class MainActivity : AppCompatActivity(), OnMapReadyCallback {
+class MainActivity : AppCompatActivity(), OnMapReadyCallback, Overlay.OnClickListener {
     private lateinit var naverMap: NaverMap
     private lateinit var binding: ActivityMainBinding
     private lateinit var locationSource: FusedLocationSource
     private val recyclerView: RecyclerView by lazy {
         findViewById(R.id.recyclerView)
     }
+    private val bottomSheetTitleTextView: TextView by lazy {
+        findViewById(R.id.bottomSheetTitleTextView)
+    }
     private val recyclerAdapter = HouseListAdapter()
-    private val viewPagerAdapter = HouseViewPagerAdapter()
+    private val viewPagerAdapter = HouseViewPagerAdapter(itemClicked = {
+        val intent = Intent()
+            .apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_TEXT, "[지금 이 가격에 예약하세요!] ${it.title} ${it.price} 사진보기 : ${it.imgUrl}")
+                type = "text/plain"
+            }
+        startActivity(Intent.createChooser(intent, null))
+    })
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -38,6 +53,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         binding.houseViewPager.adapter = viewPagerAdapter
         recyclerView.adapter = recyclerAdapter
         recyclerView.layoutManager = LinearLayoutManager(this)
+
+        // ViewPager 의 page 가 변경 될 때마다 해당 page 의 호텔 위치로 카메라를 이동
+        binding.houseViewPager.registerOnPageChangeCallback(object: ViewPager2.OnPageChangeCallback(){
+            override fun onPageSelected(position: Int) {
+                super.onPageSelected(position)
+
+                val selectedHouseModel = viewPagerAdapter.currentList[position] // 현재 page 의 호텔 정보를 가져옴
+                val cameraUpdate = CameraUpdate.scrollTo(LatLng(selectedHouseModel.lat, selectedHouseModel.lng))
+                    .animate(CameraAnimation.Easing) // 애니메이션 추가
+                naverMap.moveCamera(cameraUpdate)
+            }
+        })
 
     }
     override fun onMapReady(map: NaverMap) {
@@ -83,6 +110,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                             updateMarker(dto.items)
                             viewPagerAdapter.submitList(dto.items)
                             recyclerAdapter.submitList(dto.items)
+                            bottomSheetTitleTextView.text = "${dto.items.size}개의 숙소"
+
                         }
                     }
 
@@ -98,7 +127,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         houses.forEach { house ->
             val marker = Marker()
             marker.position = LatLng(house.lat, house.lng)
-            // todo 마커 클릭 리스너
+            // 마커 클릭 리스너
+            marker.onClickListener = this
             marker.map = naverMap
             marker.tag = house.id
             marker.icon = MarkerIcons.BLACK
@@ -163,6 +193,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
     companion object{
         private const val LOCATION_PERMISSION_REQUEST_CODE = 10000
+    }
+
+    override fun onClick(overlay: Overlay): Boolean {
+        // 마커 클릭 리스너
+        val selectedModel = viewPagerAdapter.currentList.firstOrNull {
+            // 리스트에 있는 호텔 id 와 현재 클릭 된 마커의 tag 값을 비교해서 처음으로 같은 경우의 모델을 저장 없으면 null
+            it.id == overlay.tag
+        }
+
+        selectedModel?.let { // selectedModel 이 null 이 아니면 다음 코드를 실행
+            val position = viewPagerAdapter.currentList.indexOf(it) // 리스트에서 selectedModel 의 위치를 찾음
+            binding.houseViewPager.currentItem = position // 현재 viewPager 의 page 를 업데이트
+        }
+
+        return true
     }
 
 }
